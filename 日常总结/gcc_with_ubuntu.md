@@ -1,3 +1,6 @@
+在 Ubuntu 配置 gcc 7
+---
+
 链接 https://launchpad.net/~jonathonf
 
 ```
