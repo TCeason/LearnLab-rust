@@ -1,5 +1,7 @@
 # ProxySQL V2.0.2
 
+[TOC]
+
 ## ProxySQL 架构介绍
 
 ### 多级配置系统介绍
@@ -204,11 +206,12 @@ ProxySQL 是通过`自定义sql路由规则`就可以实现读写分离。定义
 
 ```
 
-proxysql_global.cpp 定义了 PROXYSQL_EXTERN，对应 include/proxysql_structs.h:
+* proxysql_global.cpp 定义了 PROXYSQL_EXTERN，对应 include/proxysql_structs.h:
 
 ```cpp
 583:#ifdef PROXYSQL_EXTERN
 ...
+
 ```
 
 * main.cpp:
@@ -218,7 +221,7 @@ proxysql_global.cpp 定义了 PROXYSQL_EXTERN，对应 include/proxysql_structs.
 > 
 > ```cpp
 > const char *malloc_conf = "xmalloc:true,lg_tcache_max:16,purge:decay,prof:true,prof_leak:true,lg_prof_sample:20,lg_prof_interval:30,prof_active:false";
->
+> 
 > ```
 > * xmalloc:true  --> Abort-on-out-of-memory enabled
 > * lg_tcache_max:16 --> Maximum size class to cache in the thread-specific cache 2^16=64KB
@@ -230,7 +233,7 @@ proxysql_global.cpp 定义了 PROXYSQL_EXTERN，对应 include/proxysql_structs.
 > 
 > ```cpp
 > void * mysql_worker_thread_func(void *arg) {
-
+> 
 > //	__thr_sfp=l_mem_init();
 > // 监听 TCP 和 Unix socket
 >	pthread_attr_t thread_attr;
@@ -240,7 +243,7 @@ proxysql_global.cpp 定义了 PROXYSQL_EXTERN，对应 include/proxysql_structs.
 >			__sync_fetch_and_add(&GloVars.statuses.stack_memory_mysql_threads,tmp_stack_size);
 >		}
 >	}
->
+> 
 >	proxysql_mysql_thread_t *mysql_thread=(proxysql_mysql_thread_t *)arg;
 >	MySQL_Thread *worker = new MySQL_Thread();
 >	mysql_thread->worker=worker;
@@ -266,7 +269,8 @@ proxysql_global.cpp 定义了 PROXYSQL_EXTERN，对应 include/proxysql_structs.
 > 
 > ```
 > 
-> (4) 优先读配置文件，然后在读 datadir
+> (4) 优先读配置文件，然后再读 datadir
+> 
 > ```cpp
 > void ProxySQL_Main_process_global_variables(int argc, const char **argv) {
 > ...
@@ -292,77 +296,80 @@ proxysql_global.cpp 定义了 PROXYSQL_EXTERN，对应 include/proxysql_structs.
 * mysql_session.cpp
 
 > 实现 mysql_session.h， 基于一个 session 状态确定执行路径。抽取 mysql_errcode 进行分类分析，并决定如何处理该链接。
+> 
 > ```cpp
 > switch (myerr) {
-    case 1317:  // Query execution was interrupted
-        if (killed==true) { // this session is being kiled
-            handler_ret = -1;
-            return handler_ret;
-        }
-        if (myds->killed_at) {
-            // we intentionally killed the query
-            break;
-        }
-    case 1290: // read-only
-    case 1047: // WSREP has not yet prepared node for application use
-    case 1053: // Server shutdown in progress
-        myconn->parent->connect_error(myerr);
-        if (myds->query_retries_on_failure > 0) {
-            myds->query_retries_on_failure--;
-            if ((myds->myconn->reusable==true) && myds->myconn->IsActiveTransaction()==false && myds->myconn->MultiplexDisabled()==false) {
-                retry_conn=true;
-                proxy_warning("Retrying query.\n");
-            }
-        }
-        switch (myerr) {
-            case 1047: // WSREP has not yet prepared node for application use
-            case 1053: // Server shutdown in progress
-                myds->destroy_MySQL_Connection_From_Pool(false);
-                break;
-            default:
-                if (mysql_thread___reset_connection_algorithm == 2) {
-                    create_new_session_and_reset_connection(myds);
-                } else {
-                    myds->destroy_MySQL_Connection_From_Pool(true);
-                }
-                break;
-        }
-        myconn = myds->myconn; // re-initialize
-        myds->fd=0;
-        if (retry_conn) {
-            myds->DSS=STATE_NOT_INITIALIZED;
-            //previous_status.push(PROCESSING_QUERY);
-        switch(status) { // this switch can be replaced with a simple previous_status.push(status), but it is here for readibility
-            case PROCESSING_QUERY:
-                previous_status.push(PROCESSING_QUERY);
-                break;
-            case PROCESSING_STMT_PREPARE:
-                previous_status.push(PROCESSING_STMT_PREPARE);
-                break;
-            default:
-                assert(0);
-                break;
-            }
-            if (errmsg) {
-                free(errmsg);
-                errmsg = NULL;
-            }
-            NEXT_IMMEDIATE(CONNECTING_SERVER);
-        }
-        //handler_ret = -1;
-        //return handler_ret;
-        break;
-    case 1153: // ER_NET_PACKET_TOO_LARGE
-        proxy_warning("Error ER_NET_PACKET_TOO_LARGE during query on (%d,%s,%d): %d, %s\n", myconn->parent->myhgc->hid, myconn->parent->address, myconn->parent->port, myerr, mysql_error(myconn->mysql));
-        break;
-    default:
-        break; // continue normally
-}
+>     case 1317:  // Query execution was interrupted
+>         if (killed==true) { // this session is being kiled
+>             handler_ret = -1;
+>             return handler_ret;
+>         }
+>         if (myds->killed_at) {
+>             // we intentionally killed the query
+>             break;
+>         }
+>     case 1290: // read-only
+>     case 1047: // WSREP has not yet prepared node for application use
+>     case 1053: // Server shutdown in progress
+>         myconn->parent->connect_error(myerr);
+>         if (myds->query_retries_on_failure > 0) {
+>             myds->query_retries_on_failure--;
+>             if ((myds->myconn->reusable==true) && myds->myconn->IsActiveTransaction()==false && myds->myconn->MultiplexDisabled()==false) {
+>                 retry_conn=true;
+>                 proxy_warning("Retrying query.\n");
+>             }
+>         }
+>         switch (myerr) {
+>             case 1047: // WSREP has not yet prepared node for application use
+>             case 1053: // Server shutdown in progress
+>                 myds->destroy_MySQL_Connection_From_Pool(false);
+>                 break;
+>             default:
+>                 if (mysql_thread___reset_connection_algorithm == 2) {
+>                     create_new_session_and_reset_connection(myds);
+>                 } else {
+>                     myds->destroy_MySQL_Connection_From_Pool(true);
+>                 }
+>                 break;
+>         }
+>         myconn = myds->myconn; // re-initialize
+>         myds->fd=0;
+>         if (retry_conn) {
+>             myds->DSS=STATE_NOT_INITIALIZED;
+>             //previous_status.push(PROCESSING_QUERY);
+>         switch(status) { // this switch can be replaced with a simple previous_status.push(status), but it is here for readibility
+>             case PROCESSING_QUERY:
+>                 previous_status.push(PROCESSING_QUERY);
+>                 break;
+>             case PROCESSING_STMT_PREPARE:
+>                 previous_status.push(PROCESSING_STMT_PREPARE);
+>                 break;
+>             default:
+>                 assert(0);
+>                 break;
+>             }
+>             if (errmsg) {
+>                 free(errmsg);
+>                 errmsg = NULL;
+>             }
+>             NEXT_IMMEDIATE(CONNECTING_SERVER);
+>         }
+>         //handler_ret = -1;
+>         //return handler_ret;
+>         break;
+>     case 1153: // ER_NET_PACKET_TOO_LARGE
+>         proxy_warning("Error ER_NET_PACKET_TOO_LARGE during query on (%d,%s,%d): %d, %s\n", myconn->parent->myhgc->hid, myconn->parent->address, myconn->parent->port, myerr, mysql_error(myconn->mysql));
+>         break;
+>     default:
+>         break; // continue normally
+> }
 > ```
->
-> * MySQL_HostGroups_Manager.cpp
+
+
+* MySQL_HostGroups_Manager.cpp
+
 >  shunned 状态的 HostGroup 不会被清理。链接可用
->  ```cpp
+>```cpp
 >  bool MySQL_HostGroups_Manager::shun_and_killall(char *hostname, int port) {
 >      ...
 >    switch (mysrvc->status) {
@@ -383,8 +390,7 @@ proxysql_global.cpp 定义了 PROXYSQL_EXTERN，对应 include/proxysql_structs.
 >    default:
 >        break;
 > }
-> 
->  ```
+>```
 
 ### 重点线程
 
@@ -393,9 +399,6 @@ Admin thread
 MySQL workers -> mysql-threads
 
 Monitor thread -> monitor scheme 中的表即为监控项
-
-
-
 
 
 ## ProxySQL VS Other Proxy
