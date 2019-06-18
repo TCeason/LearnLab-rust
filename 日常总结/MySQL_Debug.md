@@ -1,3 +1,6 @@
+Trace MySQL Bug
+---
+
 当我们看到 error log 中出现下面的描述，一般是使用方法错误，或者真的遇到了 bug。这个时候，只需要根据 stack 信息进行 trace，就能进一步定位问题。
 
 ```
