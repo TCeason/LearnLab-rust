@@ -1,10 +1,32 @@
-# ProxySQL V2.0.2
+ProxySQL V2.0.2
+---
 
-[TOC]
+   * [ProxySQL V2.0.2](#proxysql-v202)
+      * [1. ProxySQL 架构介绍](#1-proxysql-架构介绍)
+         * [1.1. 多级配置系统介绍](#11-多级配置系统介绍)
+         * [1.2. ProxySQL 实例生命周期](#12-proxysql-实例生命周期)
+            * [1.2.1 启动](#121-启动)
+            * [1.2.2. 初始化启动方式](#122-初始化启动方式)
+            * [1.2.3. 重载启动](#123-重载启动)
+            * [1.2.4. 在 RUNTIME 修改配置](#124-在-runtime-修改配置)
+            * [1.2.5. 修改配置后传到其他配置层](#125-修改配置后传到其他配置层)
+      * [2. ProxySQL 配置](#2-proxysql-配置)
+         * [2.1. 配置 Backend Service](#21-配置-backend-service)
+         * [2.2. 配置 ProxySQL](#22-配置-proxysql)
+      * [3. ProxySQL 读写分离](#3-proxysql-读写分离)
+      * [4. ProxySQL V2.0.2 源码探析](#4-proxysql-v202-源码探析)
+         * [4.1. 源代码组织结构](#41-源代码组织结构)
+            * [4.1.1 src/](#411-src)
+            * [4.1.2. include/](#412-include)
+            * [4.1.3. lib/](#413-lib)
+            * [4.1.4 重点线程](#414-重点线程)
+      * [5. ProxySQL VS Other Proxy](#5-proxysql-vs-other-proxy)
+      * [6. ProxySQL 性能测试（SSL ON/OFF）](#6-proxysql-性能测试ssl-onoff)
+         * [6.1. 开启 SSL 认证](#61-开启-ssl-认证)
+         * [6.2. 关闭 SSL 认证加密](#62-关闭-ssl-认证加密)
+## 1. ProxySQL 架构介绍
 
-## ProxySQL 架构介绍
-
-### 多级配置系统介绍
+### 1.1. 多级配置系统介绍
 
 ProxySQL 是一个拥有复杂多级配置系统（Multi layer configuration system），但是易于使用的 Proxy。正是因为有一个复杂的多级配置系统，所以，可以满足以下需求
 
@@ -47,9 +69,9 @@ ProxySQL 是一个拥有复杂多级配置系统（Multi layer configuration sys
   * DISK: 磁盘上的存于 SQLite3 的数据。重启 ProxySQL 时，内存中（RUNTIME+MEMORY）配置将丢失。
   * CONFIG FILE: 配置文件，默认在 /etc/proxysql.cnf
 
-### ProxySQL 实例生命周期
+### 1.2. ProxySQL 实例生命周期
 
-#### 启动
+#### 1.2.1 启动
 
 正常启动时，会通过该命令 `proxysql -c /etc/proxysql.cnf`  读取配置文件，确定 `datadir`。
 > 所以，datadir 是否存在将产生根本差别：
@@ -58,19 +80,19 @@ ProxySQL 是一个拥有复杂多级配置系统（Multi layer configuration sys
 > * datadir 存在：
 > ProxySQL将从持久存储的磁盘数据库初始化其内存中配置。因此，磁盘被加载到内存中，然后传播到RUNTIME。
 
-#### 初始化启动方式
+#### 1.2.2. 初始化启动方式
 
 使用 `--initial` 标识，或者，datadir 不存在 的时候，都会解析配置文件，并加载到内存，并传播到RUNTIME。
 
-#### 重载启动
+#### 1.2.3. 重载启动
 
 使用 `--reload` 标识，会尝试 merge CONFIG FILE 和 DISK 的配置，如果有冲突会报错。
 
-#### 在 RUNTIME 修改配置
+#### 1.2.4. 在 RUNTIME 修改配置
 
 修改 RUNTIME 相关 tables 后，通过支持的命令集合进行 load configuration。详尽方法参见下一节
 
-#### 修改配置后传到其他配置层
+#### 1.2.5. 修改配置后传到其他配置层
 
 修改方法可以是从 DISK TO RUNTIME/MEMORY 或者 MEMORY TO RUNTIME/DISK ，这里只介绍如何从 MEMORY TO RUNTIME/DISK。
 
@@ -92,11 +114,11 @@ SAVE ADMIN VARIABLES TO DISK;
 
 ```
 
-## ProxySQL 配置
+## 2. ProxySQL 配置
 
 开始此章节的时候，假定 proxysql 以及 后端 MySQL 主从服务（ backend service） 已经安装完毕。如果 ProxySQL 安装有问题，参考[下节](#ProxySQL 源码探析)。接下来开始 ProxySQL 配置（均采用默认配置项）。
 
-### 配置 Backend Service
+### 2.1. 配置 Backend Service
 
 * 根据 proxysql.cnf 默认给定的 monitor 账户（监管 backend service 状态）在 backend service 建立相关监控账户。
 ```
@@ -105,7 +127,7 @@ backend_service> CREATE USER 'monitor'@'%' IDENTIFIED BY 'monitor';
 backend_service> GRANT USAGE ON *.* TO 'monitor'@'%';
 ```
 
-### 配置 ProxySQL
+### 2.2. 配置 ProxySQL
 
 * 同步 backend service users 到 ProxySQL 的 mysql_users 表中。后端以 MySQL 5.7.20-18 为例：
 
@@ -163,7 +185,7 @@ backend_service> GRANT USAGE ON *.* TO 'monitor'@'%';
 >```
 > **Note:** 该表填写后，通过 monitor 账户去获取该值，会以 read_only 的值为 读/写 库判断依据，将 mysql_servers 的 hostname 对应的 hostgroup_id 设置为 0 或 1。建议采用 LVS 分配 VIP，方便管理。
 
-## ProxySQL 读写分离
+## 3. ProxySQL 读写分离
 
 ProxySQL 是通过`自定义sql路由规则`就可以实现读写分离。定义路由规则，如：除select * from tb for update的select全部发送到slave，其他的的语句发送到master。
 
@@ -179,11 +201,11 @@ ProxySQL 是通过`自定义sql路由规则`就可以实现读写分离。定义
 > +---------+--------+----------------------+-----------------------+-------+
 > ```
 
-## ProxySQL V2.0.2 源码探析
+## 4. ProxySQL V2.0.2 源码探析
 
 源码是基于 C/C++ 编写的。Makefile 是硬编码，所以，需要 make && sudo make install 将命令安装到 /usr/bin/proxysql。
 
-### 源代码组织结构
+### 4.1. 源代码组织结构
 
 | 目录 | 作用 |
 | -- | :--: |
@@ -193,7 +215,7 @@ ProxySQL 是通过`自定义sql路由规则`就可以实现读写分离。定义
 | src | ProxySQL Main 调用 |
 
 
-### src/
+#### 4.1.1 src/
 
 * src/proxysql_global.cpp:
 
@@ -285,13 +307,13 @@ ProxySQL 是通过`自定义sql路由规则`就可以实现读写分离。定义
 >    }
 > ```
 
-### include/
+#### 4.1.2. include/
 
 * proxysql_struct.h
 
 > 定义了 global variables
 
-### lib/
+#### 4.1.3. lib/
 
 * mysql_session.cpp
 
@@ -392,16 +414,16 @@ ProxySQL 是通过`自定义sql路由规则`就可以实现读写分离。定义
 > }
 >```
 
-### 重点线程
+#### 4.1.4 重点线程
 
-Admin thread
+> * Admin thread
+> 
+> * MySQL workers -> mysql-threads
+> 
+> * Monitor thread -> monitor scheme 中的表即为监控项
 
-MySQL workers -> mysql-threads
 
-Monitor thread -> monitor scheme 中的表即为监控项
-
-
-## ProxySQL VS Other Proxy
+## 5. ProxySQL VS Other Proxy
 
 https://proxysql.com/compare
 
@@ -415,7 +437,7 @@ https://proxysql.com/blog/proxysql-vs-maxscale-persistent-connection-response-ti
 
 https://www.percona.com/live/17/sessions/mysql-load-balancers-maxscale-proxysql-haproxy-mysql-router-nginx-close-look
 
-## ProxySQL 性能测试（SSL ON/OFF）
+## 6. ProxySQL 性能测试（SSL ON/OFF）
 
 | CPU | MEMORY | ROLE | THREADS NUM | RUNTIME |
 | :--: | :--: | :--: | :--: | :--: |
@@ -425,7 +447,7 @@ https://www.percona.com/live/17/sessions/mysql-load-balancers-maxscale-proxysql-
 性能比：
 (28695.79−25054.72)/28695.79*100% = 12.69%
 
-### 开启 SSL 认证
+### 6.1. 开启 SSL 认证
 
 ```
     queries performed:
@@ -457,7 +479,7 @@ Threads fairness:
 ```
 
 
-### 关闭 SSL 认证加密
+### 6.2. 关闭 SSL 认证加密
 ```
 SQL statistics:
     queries performed:
