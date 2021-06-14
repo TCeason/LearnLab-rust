@@ -1,3 +1,3 @@
-# OWN_STUDY
+# Experiment
 
-own study and some test
+Experimental project.
