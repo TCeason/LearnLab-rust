@@ -1,0 +1,8 @@
+[workspace]
+members = [
+    "rust-sqlpaser",
+    "kv-store",
+    "rust-basic",
+    "rust-basic/mandelbrot",
+    "hashmap"
+]
