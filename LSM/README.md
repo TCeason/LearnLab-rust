@@ -1,0 +1,2 @@
+- [x] constructor SkipList
+- [x] impl SkipList
