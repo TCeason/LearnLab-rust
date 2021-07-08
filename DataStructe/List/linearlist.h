@@ -9,10 +9,10 @@
 using namespace std;
 
 template<class T>
-class linerList
+class linearList
 {
     public:
-        virtual ~linerList() {};
+        virtual ~linearList() {};
         // return true if list is empty
         virtual bool empty() const = 0;
 

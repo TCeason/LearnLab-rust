@@ -9,7 +9,7 @@
 #include <sstream>
 #include <string>
 #include <algorithm>
-#include "linerlist.h"
+#include "linearlist.h"
 #include "changeLength1D.h"
 #include "myExceptions.h"
 #include <iterator>
@@ -17,7 +17,7 @@
 using namespace std;
 
 template<class T>
-class arraylist : public linerList<T>
+class arraylist : public linearList<T>
 {
 public:
     arraylist(int initialCapacity = 10);

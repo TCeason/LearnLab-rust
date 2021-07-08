@@ -1,23 +1,28 @@
 //
-// Created by taichong on 2021/7/7.
+// Created by taichong on 2021/7/8.
 //
 
-#include <iostream>
+#include<iostream>
+#include<numeric>
+#include<algorithm>   // has reverse
+#include<functional>  // has greater
 #include "linearlist.h"
-#include "arraylist.h"
-#include "myExceptions.h"
+#include "vectorlist.h"
 
 using namespace std;
 
 int main()
 {
-    linearList<double> *x = new arraylist<double>(20);
-    arraylist<int> y(2), z;
+    // test constructor
+    linearList<double> *x = new vectorlist<double>(20);
+    vectorlist<int> y(2), z;
 
-    cout << "Capacity of x, y, z = "
-    << ((arraylist<double>*) x)->capacity() << ", "
-    << y.capacity() << ", "
-    << z.capacity() << endl;
+    // test capacity
+    cout << "Capacity of x, y and z = "
+         << ((vectorlist<double>*) x)->capacity() << ", "
+         << y.capacity() << ", "
+         << z.capacity() << endl;
+
 
     // test size
     cout << "Initial size of x, y, and z = "
@@ -73,10 +78,7 @@ int main()
     if (y.empty()) cout << "y is empty" << endl;
     else cout << "y is not empty" << endl;
 
-    try
-    {
-        y.insert(-3, 0);
-    }
+    try {y.insert(-3, 0);}
     catch (illegalIndex e)
     {
         cout << "Illegal index exception" << endl;
@@ -85,9 +87,7 @@ int main()
     }
 
     // test copy constructor
-    arraylist<int> w(y);
-    cout << "w is " << w << endl;
-    cout << "y is " << y << endl;
+    vectorlist<int> w(y);
     y.erase(0);
     y.erase(0);
     cout << "w should be old y, new y has first 2 elements removed" << endl;
@@ -100,5 +100,38 @@ int main()
     y.insert(0,6);
     y.insert(0,7);
     cout << "y is " << y << endl;
+
+    // test iterator
+    cout << "Ouput using forward iterators pre and post ++" << endl;
+    for (vectorlist<int>::iterator i = y.begin();
+         i != y.end(); i++)
+        cout << *i << "  ";
+    cout << endl;
+    for (vectorlist<int>::iterator i = y.begin();
+         i != y.end(); ++i)
+        cout << *i << "  ";
+    cout << endl;
+
+    cout << "Ouput using backward iterators pre and post --" << endl;
+    for (vectorlist<int>::iterator i = y.end();
+         i != y.begin(); cout << *(--i) << "  ");
+    cout << endl;
+    for (vectorlist<int>::iterator i = y.end();
+         i != y.begin();)
+    {i--; cout << *i << "  "; *i += 1;}
+    cout << endl;
+    cout << "Incremented by 1 list is " << y << endl;
+
+    // try out some STL algorithms
+    reverse(y.begin(), y.end());
+    cout << "The reversed list is " << y << endl;
+    int sum = accumulate(y.begin(), y.end(), 0);
+    cout << "The sum of the elements is " << sum << endl;
+    sort(y.begin(), y.end());
+    cout << "The sorted list is " << y << endl;
+    sort(y.begin(), y.end(), greater<int>());
+    cout << "The list is descending order is " << y << endl;
     return 0;
 }
+
+
