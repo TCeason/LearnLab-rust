@@ -18,7 +18,7 @@ public:
 
     virtual int size() const = 0;
 
-    virtual int top() = 0;
+    virtual T& top() = 0;
 
     // remove the top element;
     virtual void pop() = 0;
